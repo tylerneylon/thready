@@ -43,6 +43,7 @@ const thready__Id thready__error = NULL;
 
 // The thready interface.
 
-thready__Id thready__create(thready__ReceiverFn receiver);
+thready__Id thready__create (thready__ReceiverFn receiver);
+void        thready__runloop(thready__ReceiverFn receiver);
 void        thready__send(json_Item msg, thready__Id to);
 thready__Id thready__my_id();
