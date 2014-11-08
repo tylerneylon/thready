@@ -30,14 +30,19 @@
 
 // Typedefs.
 
-typedef int thready__Id;  // An identifier for a thread.
+typedef void *thready__Id;  // An identifier for a thread.
 
 // A function to receive messages.
 typedef void (*thready__ReceiverFn)(json_Item msg, thready__Id from);
 
 
+// Constants
+
+const thready__Id thready__error = NULL;
+
+
 // The thready interface.
 
-thready__Id thready__new(thready__ReceiverFn receiver);
+thready__Id thready__create(thready__ReceiverFn receiver);
 void        thready__send(json_Item msg, thready__Id to);
 thready__Id thready__my_id();

@@ -16,7 +16,7 @@ cc = gcc $(cflags)
 all: out/thready.o out/json.o out/jsonutil.o
 
 out/thready.o: thready/thready.c thready/thready.h | out
-	$(cc) -o $@ -c $<
+	$(cc) -o $@ -c $< -pthread
 
 out/json.o: json/json.c json/json.h | out
 	$(cc) -o $@ -c $<
