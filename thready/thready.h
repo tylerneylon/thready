@@ -50,8 +50,8 @@ thready__Id thready__my_id  ();
 
 // Constants
 
-const thready__Id thready__error   = NULL;
-const thready__Id thready__success = (thready__Id) 0x1;
+extern const thready__Id thready__error;
+extern const thready__Id thready__success;
 
 // Use these constants with thready__runloop for readable parameter values.
 #define thready__nonblocking 0

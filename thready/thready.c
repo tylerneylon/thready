@@ -64,6 +64,12 @@ static void send_out_first_msg(Thread *thread, thready__Receiver receiver) {
 }
 
 
+// Public constants.
+
+const thready__Id thready__error   = NULL;
+const thready__Id thready__success = (thready__Id) 0x1;
+
+
 // Public functions.
 
 thready__Id thready__create(thready__Receiver receiver) {
