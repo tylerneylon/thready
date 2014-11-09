@@ -8,6 +8,8 @@
 // http://en.wikipedia.org/wiki/Actor_model
 //
 
+// TODO Update all comments.
+
 // Design:
 //
 // A thready message is a json_Item.
@@ -33,17 +35,24 @@
 typedef void *thready__Id;  // An identifier for a thread.
 
 // A function to receive messages.
-typedef void (*thready__ReceiverFn)(json_Item msg, thready__Id from);
-
-
-// Constants
-
-const thready__Id thready__error = NULL;
+typedef void  (*thready__Receiver)(json_Item msg, thready__Id from);
 
 
 // The thready interface.
 
-thready__Id thready__create (thready__ReceiverFn receiver);
-void        thready__runloop(thready__ReceiverFn receiver);
-void        thready__send(json_Item msg, thready__Id to);
-thready__Id thready__my_id();
+thready__Id thready__create (thready__Receiver receiver);
+void        thready__exit   ();
+
+thready__Id thready__runloop(thready__Receiver receiver, int blocking);
+thready__Id thready__send   (json_Item msg, thready__Id to);
+thready__Id thready__my_id  ();
+
+
+// Constants
+
+const thready__Id thready__error   = NULL;
+const thready__Id thready__success = (thready__Id) 0x1;
+
+// Use these constants with thready__runloop for readable parameter values.
+#define thready__nonblocking 0
+#define thready__blocking    1
