@@ -160,9 +160,12 @@ void scale_main_get_msg(void *msg, thready__Id from) {
 
 int scale_test() {
 
-  // Create 100 other threads, tell each about 10 others at random, and
-  // each sends a message to those 10 otheres. We make sure a total of
-  // exactly 2000 messages are received.
+  const int num_kids = 100;
+  const int msg_per_kid = 100;
+
+  // Create num_kids other threads, tell each about msg_per_kid others at
+  // random, and each sends a message to those msg_per_kid others. We make sure
+  // a total of exactly 2 * num_kids * msg_per_kid messages are received.
   //
   // This test fails by either freezing if an unexpectedly low number of
   // messages are sent, or by failing normally if too many messages are
@@ -171,29 +174,30 @@ int scale_test() {
   test_printf("Beginning scale_test.\n");
   main_id = thready__my_id();
   srand(time(NULL));
-  thready__Id ids[100];
+  thready__Id ids[num_kids];
 
-  test_printf("About to create 100 threads.\n");
-  for (int i = 0; i < 100; ++i) {
+  test_printf("About to create %d threads.\n", num_kids);
+  for (int i = 0; i < num_kids; ++i) {
     ids[i] = thready__create(scale_child_get_msg);
   }
 
-  test_printf("About to send out 10 ids to each child thread.\n");
-  for (int i = 0; i < 100; ++i) {
-    for (int j = 0; j < 10; ++j) {
-      thready__send(ids[rand() % 100], ids[i]);
+  test_printf("About to send out %d ids to each child thread.\n", msg_per_kid);
+  for (int i = 0; i < num_kids; ++i) {
+    for (int j = 0; j < msg_per_kid; ++j) {
+      thready__send(ids[rand() % num_kids], ids[i]);
     }
   }
 
   test_printf("Waiting for num_msg_recd to reach 2000.\n");
-  while (num_msg_recd < 2000) {
+  int msg_goal = 2 * num_kids * msg_per_kid;
+  while (num_msg_recd < msg_goal) {
     thready__runloop(scale_main_get_msg, thready__blocking);
   }
   // Check for any superfluous messages.
   for (int i = 0; i < 1000; ++i) {
     thready__runloop(scale_main_get_msg, thready__nonblocking);
   }
-  test_that(num_msg_recd == 2000);
+  test_that(num_msg_recd == msg_goal);
 
   return test_success;
 }
