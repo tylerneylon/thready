@@ -39,7 +39,7 @@ out/ctest.o : test/ctest.c test/ctest.h | out
 	$(cc) -o $@ -c $<
 
 $(tests) : out/% : test/%.c $(cstructs_obj) out/thready.o out/ctest.o
-	$(cc) -o $@ $^
+	$(cc) -o $@ $^ -pthread
 
 out:
 	mkdir out

@@ -5,6 +5,7 @@
 #include "../cstructs/cstructs.h"
 
 #include <pthread.h>
+#include <stdint.h>
 
 
 // Internal types and data.
@@ -60,7 +61,7 @@ static void init() {
 
   pthread_rwlock_wrlock(&threads_lock);
   Thread *thread = new_thread_struct();
-  map__set(threads, pthread_self(), thread);
+  map__set(threads, (void *)(intptr_t)pthread_self(), thread);
   pthread_rwlock_unlock(&threads_lock);
 }
 
@@ -110,7 +111,7 @@ thready__Id thready__create(thready__Receiver receiver) {
 
   // Allocate and set the new thread's inbox.
   Thread *thread = new_thread_struct();
-  map__set(threads, pthread, thread);  // threads[pthread] = thread
+  map__set(threads, (void *)(intptr_t)pthread, thread);  // threads[pthread] = thread
 
   pthread_rwlock_unlock(&threads_lock);
 
@@ -119,7 +120,7 @@ thready__Id thready__create(thready__Receiver receiver) {
 
 void thready__exit() {
   pthread_rwlock_wrlock(&threads_lock);
-  map__unset(threads, pthread_self());
+  map__unset(threads, (void *)(intptr_t)pthread_self());
   pthread_rwlock_unlock(&threads_lock);
   pthread_exit(NULL);  // NULL -> Unused return value to pthread_join.
 }
@@ -171,7 +172,7 @@ thready__Id thready__my_id() {
   pthread_once(&init_control, init);
 
   pthread_rwlock_rdlock(&threads_lock);
-  map__key_value *pair = map__find(threads, pthread_self());
+  map__key_value *pair = map__find(threads, (void *)(intptr_t)pthread_self());
   pthread_rwlock_unlock(&threads_lock);
 
   if (pair == NULL) return thready__error;
