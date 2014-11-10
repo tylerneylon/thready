@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // TODO Review if these are needed.
 
@@ -80,6 +81,125 @@ int exit_test() {
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// Four thread test
+
+void get_msg1(void *msg, thready__Id from) {
+  int msg_int = (int)(intptr_t)msg;
+  test_that(msg_int == 1);
+  thready__send(NULL, from);
+}
+
+void get_msg2(void *msg, thready__Id from) {
+  int msg_int = (int)(intptr_t)msg;
+  test_that(msg_int == 2);
+  thready__send(NULL, from);
+}
+
+void get_msg3(void *msg, thready__Id from) {
+  int msg_int = (int)(intptr_t)msg;
+  test_that(msg_int == 3);
+  thready__send(NULL, from);
+}
+
+static int numcallbacks = 0;
+
+void main_get_msg(void *msg, thready__Id from) {
+  numcallbacks++;
+}
+
+int four_thread_test() {
+
+  // The four threads in question are the main thread and
+  // three created threads.
+
+  thready__Id id1 = thready__create(get_msg1);
+  thready__Id id2 = thready__create(get_msg2);
+  thready__Id id3 = thready__create(get_msg3);
+
+  thready__send((void *)(intptr_t)1, id1);
+  thready__send((void *)(intptr_t)2, id2);
+  thready__send((void *)(intptr_t)3, id3);
+
+  // Wait for all other threads to receive their message so they
+  // have a chance to run, and possibly fail if something is wrong.
+  while (numcallbacks < 3) {
+    thready__runloop(main_get_msg, thready__blocking);
+  }
+
+  return test_success;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Scale test
+
+// This is the scale_test's main thread's id.
+// This is set once by the main thread before any child threads are created,
+// and treated as ready-only from there.
+static thready__Id main_id;
+
+void scale_child_get_msg(void *msg, thready__Id from) {
+  if (msg) {
+    // This is another thread's id.
+    thready__Id to = (thready__Id)msg;
+    thready__send(NULL, to);
+  }
+
+  thready__send(NULL, main_id);
+}
+
+// This computes the number of messages received by child threads.
+// We know this because each child sends a single NULL msg to the
+// main thread for every message it receives.
+// Only the main thread sees or touches this value.
+static int num_msg_recd = 0;
+
+void scale_main_get_msg(void *msg, thready__Id from) {
+  num_msg_recd++;
+}
+
+int scale_test() {
+
+  // Create 100 other threads, tell each about 10 others at random, and
+  // each sends a message to those 10 otheres. We make sure a total of
+  // exactly 2000 messages are received.
+  //
+  // This test fails by either freezing if an unexpectedly low number of
+  // messages are sent, or by failing normally if too many messages are
+  // sent and caught by the nonblocking runloop cycles at the test's end.
+  
+  test_printf("Beginning scale_test.\n");
+  main_id = thready__my_id();
+  srand(time(NULL));
+  thready__Id ids[100];
+
+  test_printf("About to create 100 threads.\n");
+  for (int i = 0; i < 100; ++i) {
+    ids[i] = thready__create(scale_child_get_msg);
+  }
+
+  test_printf("About to send out 10 ids to each child thread.\n");
+  for (int i = 0; i < 100; ++i) {
+    for (int j = 0; j < 10; ++j) {
+      thready__send(ids[rand() % 100], ids[i]);
+    }
+  }
+
+  test_printf("Waiting for num_msg_recd to reach 2000.\n");
+  while (num_msg_recd < 2000) {
+    thready__runloop(scale_main_get_msg, thready__blocking);
+  }
+  // Check for any superfluous messages.
+  for (int i = 0; i < 1000; ++i) {
+    thready__runloop(scale_main_get_msg, thready__nonblocking);
+  }
+  test_that(num_msg_recd == 2000);
+
+  return test_success;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 // Main
 
 int main(int argc, char **argv) {
@@ -87,7 +207,7 @@ int main(int argc, char **argv) {
 
   start_all_tests(argv[0]);
   run_tests(
-    simple_test, exit_test
+    simple_test, exit_test, four_thread_test, scale_test
   );
   return end_all_tests();
 }
