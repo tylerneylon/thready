@@ -9,6 +9,7 @@
 
 #include "ctest.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // TODO Review if these are needed.
@@ -30,27 +31,25 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Simple test
 
-void bg_handle_msg(json_Item msg, thready__Id from) {
+void bg_handle_msg(void *msg, thready__Id from) {
   test_printf("tid %p; got a message.\n", thready__my_id());
-  test_that(msg.type == item_string);
-  test_str_eq(item_str(msg), "howdy");
-  json_release_item(&msg);
+  test_str_eq(msg, "howdy");
+  free(msg);
 
-  json_Item reply = copy_str_item("howdy back");
+  void *reply = strdup("howdy back");
   thready__send(reply, from);
 }
 
-void fg_handle_msg(json_Item msg, thready__Id from) {
+void fg_handle_msg(void *msg, thready__Id from) {
   test_printf("tid %p; got a message.\n", thready__my_id());
-  test_that(msg.type == item_string);
-  test_str_eq(item_str(msg), "howdy back");
-  json_release_item(&msg);
+  test_str_eq(msg, "howdy back");
+  free(msg);
 }
 
 int simple_test() {
   thready__Id other = thready__create(bg_handle_msg);
   test_printf("main test body: my tid=%p new tid=%p.\n", thready__my_id(), other);
-  json_Item msg = copy_str_item("howdy");
+  void *msg = strdup("howdy");
   thready__send(msg, other);
   thready__runloop(fg_handle_msg, thready__blocking);
   return test_success;

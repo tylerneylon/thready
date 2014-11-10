@@ -27,15 +27,13 @@
 
 #pragma once
 
-#include "../json/json.h"
-
 
 // Typedefs.
 
 typedef void *thready__Id;  // An identifier for a thread.
 
 // A function to receive messages.
-typedef void  (*thready__Receiver)(json_Item msg, thready__Id from);
+typedef void  (*thready__Receiver)(void *msg, thready__Id from);
 
 
 // The thready interface.
@@ -44,7 +42,7 @@ thready__Id thready__create (thready__Receiver receiver);
 void        thready__exit   ();
 
 thready__Id thready__runloop(thready__Receiver receiver, int blocking);
-thready__Id thready__send   (json_Item msg, thready__Id to);
+thready__Id thready__send   (void *msg, thready__Id to);
 thready__Id thready__my_id  ();
 
 

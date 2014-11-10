@@ -20,7 +20,7 @@ cc = gcc $(cflags)
 # Test-running environment.
 testenv = DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib MALLOC_LOG_FILE=/dev/null
 
-all: out/thready.o out/json.o out/jsonutil.o $(tests)
+all: out/thready.o $(tests)
 
 test: $(tests)
 	@echo Running tests:
@@ -32,19 +32,13 @@ test: $(tests)
 out/thready.o: thready/thready.c thready/thready.h | out
 	$(cc) -o $@ -c $< -pthread
 
-out/json.o: json/json.c json/json.h | out
-	$(cc) -o $@ -c $<
-
-out/jsonutil.o: json/jsonutil.c json/jsonutil.h | out
-	$(cc) -o $@ -c $<
-
 $(cstructs_obj) : out/%.o : cstructs/%.c cstructs/%.h | out
 	$(cc) -o $@ -c $<
 
 out/ctest.o : test/ctest.c test/ctest.h | out
 	$(cc) -o $@ -c $<
 
-$(tests) : out/% : test/%.c $(cstructs_obj) out/thready.o out/json.o out/ctest.o
+$(tests) : out/% : test/%.c $(cstructs_obj) out/thready.o out/ctest.o
 	$(cc) -o $@ $^
 
 out:

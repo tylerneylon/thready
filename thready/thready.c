@@ -10,7 +10,7 @@
 // Internal types and data.
 
 typedef struct {
-  json_Item   msg;
+  void *   msg;
   thready__Id from;
 } Envelope;
 
@@ -149,7 +149,7 @@ thready__Id thready__runloop(thready__Receiver receiver, int blocking) {
 }
 
 
-thready__Id thready__send(json_Item msg, thready__Id to_id) {
+thready__Id thready__send(void *msg, thready__Id to_id) {
   pthread_once(&init_control, init);
 
   // Get this thread's Thread object.
