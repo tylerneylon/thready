@@ -26,9 +26,45 @@
 // test_failed(fmt, ...)
 //
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Simple test
+
+void bg_handle_msg(json_Item msg, thready__Id from) {
+  test_printf("tid %p; got a message.\n", thready__my_id());
+  test_that(msg.type == item_string);
+  test_str_eq(item_str(msg), "howdy");
+  json_release_item(&msg);
+
+  json_Item reply = copy_str_item("howdy back");
+  thready__send(reply, from);
+}
+
+void fg_handle_msg(json_Item msg, thready__Id from) {
+  test_printf("tid %p; got a message.\n", thready__my_id());
+  test_that(msg.type == item_string);
+  test_str_eq(item_str(msg), "howdy back");
+  json_release_item(&msg);
+}
+
 int simple_test() {
+  thready__Id other = thready__create(bg_handle_msg);
+  test_printf("main test body: my tid=%p new tid=%p.\n", thready__my_id(), other);
+  json_Item msg = copy_str_item("howdy");
+  thready__send(msg, other);
+  thready__runloop(fg_handle_msg, thready__blocking);
   return test_success;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Exit test
+
+// TODO
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Main
 
 int main(int argc, char **argv) {
   set_verbose(0);  // Set this to 1 to help debug tests.

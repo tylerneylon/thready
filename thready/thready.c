@@ -40,8 +40,28 @@ int eq(void *v1, void *v2) {
   return v1 == v2;
 }
 
+static Thread *new_thread_struct() {
+  Thread *thread       = malloc(sizeof(Thread));
+  thread->inbox        = array__new(4, sizeof(Envelope));
+  thread->inbox_mutex  = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER;
+  thread->inbox_signal = (pthread_cond_t)  PTHREAD_COND_INITIALIZER;
+  return thread;
+}
+
+static void thread_releaser(void *thread_vp) {
+  Thread *thread = (Thread *)thread_vp;
+  array__delete(thread->inbox);
+  free(thread);
+}
+
 static void init() {
   threads = map__new(hash, eq);
+  threads->value_releaser = thread_releaser;
+
+  pthread_rwlock_wrlock(&threads_lock);
+  Thread *thread = new_thread_struct();
+  map__set(threads, pthread_self(), thread);
+  pthread_rwlock_unlock(&threads_lock);
 }
 
 // This function runs the primary loop of all threads created with thready.
@@ -89,10 +109,7 @@ thready__Id thready__create(thready__Receiver receiver) {
   }
 
   // Allocate and set the new thread's inbox.
-  Thread *thread       = malloc(sizeof(Thread));
-  thread->inbox        = array__new(4, sizeof(Envelope));
-  thread->inbox_mutex  = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER;
-  thread->inbox_signal = (pthread_cond_t)  PTHREAD_COND_INITIALIZER;
+  Thread *thread = new_thread_struct();
   map__set(threads, pthread, thread);  // threads[pthread] = thread
 
   pthread_rwlock_unlock(&threads_lock);
@@ -101,7 +118,10 @@ thready__Id thready__create(thready__Receiver receiver) {
 }
 
 void thready__exit() {
-  // TODO
+  pthread_rwlock_wrlock(&threads_lock);
+  map__unset(threads, pthread_self());
+  pthread_rwlock_unlock(&threads_lock);
+  pthread_exit(NULL);  // NULL -> Unused return value to pthread_join.
 }
 
 thready__Id thready__runloop(thready__Receiver receiver, int blocking) {
