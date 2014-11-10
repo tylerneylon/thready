@@ -59,7 +59,24 @@ int simple_test() {
 ////////////////////////////////////////////////////////////////////////////////
 // Exit test
 
-// TODO
+void get_msg_and_exit(void *msg, thready__Id from) {
+  thready__send(NULL, from);
+  thready__exit();
+  test_failed("We shouldn't get here since it's after thready__exit.\n");
+}
+
+void do_nothing_receiver(void *msg, thready__Id from) {}
+
+int exit_test() {
+  thready__Id other = thready__create(get_msg_and_exit);
+  thready__send(NULL, other);
+
+  // Block until the other thread sends us something in order to give that
+  // thread a chance to run before this test concludes.
+  thready__runloop(do_nothing_receiver, thready__blocking);
+  
+  return test_success;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,7 +87,7 @@ int main(int argc, char **argv) {
 
   start_all_tests(argv[0]);
   run_tests(
-    simple_test
+    simple_test, exit_test
   );
   return end_all_tests();
 }
