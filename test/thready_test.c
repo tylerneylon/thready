@@ -14,20 +14,11 @@
 #include <string.h>
 #include <time.h>
 
-// TODO Review if these are needed.
+#ifdef _WIN32
+#include "winutil.h"
+#endif
 
-#define true 1
-#define false 0
-
-#define array_size(x) (sizeof(x) / sizeof(x[0]))
-
-// Notes to myself:
-//
-// test_printf(fmt, ...)
-// test_that(cond)
-// test_str_eq(s1, s2)
-// test_failed(fmt, ...)
-//
+#pragma warning (disable : 4244)
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -159,9 +150,10 @@ void scale_main_get_msg(void *msg, thready__Id from) {
   num_msg_recd++;
 }
 
+#define num_kids 100
+
 int scale_test() {
 
-  const int num_kids = 100;
   const int msg_per_kid = 100;
 
   // Create num_kids other threads, tell each about msg_per_kid others at
