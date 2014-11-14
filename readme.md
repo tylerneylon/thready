@@ -2,9 +2,93 @@
 
 *A simple message-passing thread library in C.*
 
-This is a small, efficient threading library that
+This is a small, efficient, cross-platform threading library that
 handles concurrency control so you don't have to.
 
-It mostly doesn't exist right now, however.
+## Memory-sharing philosophy
 
-I'm working on that.
+Thready is primarily built around the actor model, meaning that each thread is thought of as an
+independent actor with minimal information flow between them. Traditionally, messages sent
+between actors are passed by value so that there is no question of ownership about them.
+However, `thready` modifies this by passing a single `void *` by value and encouraging the usage
+pattern that ownership of memory is passed from the sender of a message to the receiver.
+
+Conceptually, communication between threads in thready is handled thusly:
+
+    void thread1_fn() {
+      thready__Id thread2 = thready__create(thread2_callback);
+      void *my_message = allocate_and_populate_message();
+      thready__send(my_message, thread2);
+    }
+
+    void thread2_callback(void *message, thready__Id from) {
+      work_with_message(message);
+      deallocate(message);
+    }
+
+The interesting thing about this code is that there are zero concurrency controls involved in
+this transaction - things like mutexes, condition variables, or read-write locks. These
+elements are handled within `thready`.
+
+## API
+
+The thready API consists of five functions that you may call, and one callback that you
+may implement.
+
+Let's start with the callback which receives a `void *` message and the id of the sending
+thread.
+
+### `thready__callback(void *msg, thready__Id from)`
+
+A function you implement that receives messages in the given thread. It is up to you to determine
+how to pass information using `msg`. One approach is to define a C struct which is allocated by
+the sender and then deallocated by the receiver. Another, described below, is to integrate with
+`cstructs-json` to work with json-style data.
+
+### `thready__create(thready__Receiver receiver)`
+
+This function creates a new thread and begins that thread in an efficient run loop that will
+dispatch all incoming messages to the given receiver.
+
+This function returns a `thready__Id` value that can be passed in to `thready__send` in order
+to send messages to the new thread.
+
+The new thread can be terminated by calling `thready__exit`.
+
+This thread may return the value `thready__error` if there is an error, such as that the
+OS-determined thread limit has been reached.
+
+### `thready__exit()`
+
+This function terminates the thread it is called from. Thus it has no return value.
+
+### `thready__runloop(thready__Receiver receiver, int blocking)`
+
+This function gives the current thread a chance to receive messages send to it by calls to
+`thready__send`. Threads created with `thready__create` should *not* call this function, as
+they are automatically put into a thready run loop. Threads not created with `thready__create` -
+such as the main thread of your process - *should* call this function if they intend to receive
+`thready` messages.
+
+The `blocking` parameter can be given either the value `thready__blocking` or
+`thready__nonblocking`. A nonblocking call returns as soon as all messages pending at the start of
+the runloop have been dispatched. A blocking call waits until at least one message has arrived and
+been dispatched before returning. Blocking is handled efficiently in that the cpu is never kept busy
+while the inbox of a thread is empty.
+
+### `thready__send(void *msg, thready__Id to)`
+
+This sends the given `msg` to the given `thread` recipient.
+
+This returns a `thready__Id` value which may be either `thready__error` or `thready__success`.
+One example of an error condition is that the given `to` id is unknown to `thready`.
+
+### `thready__my_id()`
+
+This returns the `thready__Id` of the calling thread.  Thready ids are different from either windows
+thread ids or posix thread ids. Like other concepts of a thread id, this id is unique and consistent
+within the process for the lifetime of the thread.
+
+## Working with json messages
+
+TODO
