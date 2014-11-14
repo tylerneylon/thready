@@ -1,11 +1,28 @@
 // thready.c
+//
+// https://github.com/tylerneylon/thready
+//
 
 #include "thready.h"
 
 #include "../cstructs/cstructs.h"
 
+#ifdef _WIN32
+#include "pthreads_win.h"
+#else
 #include <pthread.h>
+#define pthread_rwlock_rdunlock pthread_rwlock_unlock
+#define pthread_rwlock_wrunlock pthread_rwlock_unlock
+#define pthread_mutex_release(x)
+#endif
+
 #include <stdint.h>
+
+// This may be useful for debugging.
+#if 0
+#include "../test/winutil.h"
+#define prline printf("%s:%d(%s) (tid=%p)\n", basename(__FILE__), __LINE__, __FUNCTION__, pthread_self())
+#endif
 
 
 // Internal types and data.
@@ -51,6 +68,7 @@ static Thread *new_thread_struct() {
 
 static void thread_releaser(void *thread_vp) {
   Thread *thread = (Thread *)thread_vp;
+  pthread_mutex_release(&thread->inbox_mutex);
   array__delete(thread->inbox);
   free(thread);
 }
@@ -62,7 +80,7 @@ static void init() {
   pthread_rwlock_wrlock(&threads_lock);
   Thread *thread = new_thread_struct();
   map__set(threads, (void *)(intptr_t)pthread_self(), thread);
-  pthread_rwlock_unlock(&threads_lock);
+  pthread_rwlock_wrunlock(&threads_lock);
 }
 
 // This function runs the primary loop of all threads created with thready.
@@ -73,7 +91,6 @@ static void *thread_runner(void *receiver_vp) {
 }
 
 static void send_out_first_msg(Thread *thread, thready__Receiver receiver) {
-
   // Read out the first message and remove it from the inbox.
   pthread_mutex_lock(&thread->inbox_mutex);
   Envelope *orig_envelope = array__item_ptr(thread->inbox, 0);
@@ -105,7 +122,7 @@ thready__Id thready__create(thready__Receiver receiver) {
                            thread_runner,  // init function
                            receiver);      // init function arg
   if (err) {
-    pthread_rwlock_unlock(&threads_lock);
+    pthread_rwlock_wrunlock(&threads_lock);
     return thready__error;
   }
 
@@ -113,7 +130,7 @@ thready__Id thready__create(thready__Receiver receiver) {
   Thread *thread = new_thread_struct();
   map__set(threads, (void *)(intptr_t)pthread, thread);  // threads[pthread] = thread
 
-  pthread_rwlock_unlock(&threads_lock);
+  pthread_rwlock_wrunlock(&threads_lock);
 
   return (thready__Id)thread;
 }
@@ -121,7 +138,7 @@ thready__Id thready__create(thready__Receiver receiver) {
 void thready__exit() {
   pthread_rwlock_wrlock(&threads_lock);
   map__unset(threads, (void *)(intptr_t)pthread_self());
-  pthread_rwlock_unlock(&threads_lock);
+  pthread_rwlock_wrunlock(&threads_lock);
   pthread_exit(NULL);  // NULL -> Unused return value to pthread_join.
 }
 
@@ -155,7 +172,7 @@ thready__Id thready__send(void *msg, thready__Id to_id) {
 
   // Get this thread's Thread object.
   Thread *from = (Thread *)thready__my_id();
-  if (from == thready__error) return thready__error;
+  if (from == thready__error) { return thready__error; }
 
   Thread *to = (Thread *)to_id;
 
@@ -173,7 +190,7 @@ thready__Id thready__my_id() {
 
   pthread_rwlock_rdlock(&threads_lock);
   map__key_value *pair = map__find(threads, (void *)(intptr_t)pthread_self());
-  pthread_rwlock_unlock(&threads_lock);
+  pthread_rwlock_rdunlock(&threads_lock);
 
   if (pair == NULL) return thready__error;
 
