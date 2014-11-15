@@ -166,7 +166,6 @@ thready__Id thready__runloop(thready__Receiver receiver, int blocking) {
   return thread;
 }
 
-
 thready__Id thready__send(void *msg, thready__Id to_id) {
   pthread_once(&init_control, init);
 
@@ -192,7 +191,12 @@ thready__Id thready__my_id() {
   map__key_value *pair = map__find(threads, (void *)(intptr_t)pthread_self());
   pthread_rwlock_rdunlock(&threads_lock);
 
-  if (pair == NULL) return thready__error;
+  if (pair == NULL) {
+    pthread_rwlock_wrlock(&threads_lock);
+    Thread *thread = new_thread_struct();
+    pair = map__set(threads, (void *)(intptr_t)pthread_self(), thread);
+    pthread_rwlock_wrunlock(&threads_lock);
+  }
 
   return (thready__Id)pair->value;
 }
