@@ -38,6 +38,7 @@ may implement.
 Let's start with the callback which receives a `void *` message and the id of the sending
 thread.
 
+---
 ### `thready__callback(void *msg, thready__Id from)`
 
 A function you implement that receives messages in the given thread. It is up to you to determine
@@ -45,6 +46,7 @@ how to pass information using `msg`. One approach is to define a C struct which 
 the sender and then deallocated by the receiver. Another, described below, is to integrate with
 `cstructs-json` to work with json-style data.
 
+---
 ### `thready__create(thready__Receiver receiver)`
 
 This function creates a new thread and begins that thread in an efficient run loop that will
@@ -58,10 +60,12 @@ The new thread can be terminated by calling `thready__exit`.
 This thread may return the value `thready__error` if there is an error, such as that the
 OS-determined thread limit has been reached.
 
+---
 ### `thready__exit()`
 
 This function terminates the thread it is called from. Thus it has no return value.
 
+---
 ### `thready__runloop(thready__Receiver receiver, int blocking)`
 
 This function gives the current thread a chance to receive messages send to it by calls to
@@ -76,6 +80,7 @@ the runloop have been dispatched. A blocking call waits until at least one messa
 been dispatched before returning. Blocking is handled efficiently in that the cpu is never kept busy
 while the inbox of a thread is empty.
 
+---
 ### `thready__send(void *msg, thready__Id to)`
 
 This sends the given `msg` to the given `thread` recipient.
@@ -83,6 +88,7 @@ This sends the given `msg` to the given `thread` recipient.
 This returns a `thready__Id` value which may be either `thready__error` or `thready__success`.
 One example of an error condition is that the given `to` id is unknown to `thready`.
 
+---
 ### `thready__my_id()`
 
 This returns the `thready__Id` of the calling thread.  Thready ids are different from either windows
@@ -91,4 +97,26 @@ within the process for the lifetime of the thread.
 
 ## Working with json messages
 
-TODO
+You are free to use the `msg` pointer in whatever way you choose - `thready` treats it as an opaque
+object passed around by value.
+One method of using the `msg` pointer is to send in json-format data
+by way of the
+[`cstructs-json`](https://github.com/tylerneylon/cstructs-json) library.
+
+Here is a suggested usage pattern for working with json data:
+
+    // In the sender:
+    json_Item item = get_my_data();
+    thready__send(item_copy_ptr(item), to);  // The receiver owns the item.
+
+    // In the receiver, we get `void *msg`:
+    json_Item item = *(json_Item *)msg;
+    work_with_item(item);
+    json_free_item(msg);
+
+It is possible, in C-to-C use of json messages, to override the `string` value type
+for use as a general pointer. In this way, arbitrary C data structures can be passed around in
+an augmented json format. The `cstructs-json` library simply frees a string pointer when the
+item is released. You may either use this to help manage your memory (by letting the standard
+  json release free your struct for you), or you may set your pointer to NULL, in which case
+  the standard json release will do nothing (meaning that you will free the data yourself).
