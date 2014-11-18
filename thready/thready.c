@@ -3,6 +3,10 @@
 // https://github.com/tylerneylon/thready
 //
 
+// TODO Clarify the rules around created-once threads calling thready__exit.
+//      Try to fail in a way that makes it easy to fix things if the user
+//      violates these rules.
+
 #include "thready.h"
 
 #include "../cstructs/cstructs.h"
@@ -47,6 +51,10 @@ static pthread_rwlock_t threads_lock = PTHREAD_RWLOCK_INITIALIZER;
 // This is a thread-safe way to make sure init is called exactly once.
 static pthread_once_t init_control = PTHREAD_ONCE_INIT;
 
+// Data for thready__create_once.
+static Map once_threads = NULL;  // Maps thready__Receiver -> Thread *.
+static pthread_rwlock_t once_threads_lock = PTHREAD_RWLOCK_INITIALIZER;
+
 
 // Internal functions.
 
@@ -76,6 +84,10 @@ static void thread_releaser(void *thread_vp) {
 static void init() {
   threads = map__new(hash, eq);
   threads->value_releaser = thread_releaser;
+  
+  // Once-threads are designed to run until the process completes, so there is
+  // no releaser.
+  once_threads = map__new(hash, eq);
 
   pthread_rwlock_wrlock(&threads_lock);
   Thread *thread = new_thread_struct();
@@ -133,6 +145,34 @@ thready__Id thready__create(thready__Receiver receiver) {
   pthread_rwlock_wrunlock(&threads_lock);
 
   return (thready__Id)thread;
+}
+
+thready__Id thready__create_once(thready__Receiver receiver) {
+  pthread_once(&init_control, init);
+  
+  // Our focus here is to return quickly if the thread already exists.
+  pthread_rwlock_rdlock(&once_threads_lock);
+  map__key_value *pair = map__find(once_threads, receiver);
+  pthread_rwlock_rdunlock(&once_threads_lock);
+  
+  if (pair) return (thready__Id)pair->value;
+  
+  // At this point someone has to initialize the thread. It might as well be me.
+  pthread_rwlock_wrlock(&once_threads_lock);
+  // In rare cases, another thread may have initialized this receiver by now.
+  pair = map__find(once_threads, receiver);
+  thready__Id thread;
+  if (pair) {
+    thread = (thready__Id)pair->value;
+  } else {
+    thread = thready__create(receiver);
+    if (thread != thready__error) {
+      map__set(once_threads, receiver, thread);
+    }
+  }
+  pthread_rwlock_wrunlock(&once_threads_lock);
+  
+  return thread;
 }
 
 void thready__exit() {

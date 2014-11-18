@@ -197,6 +197,60 @@ int scale_test() {
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// Create once test
+
+#define num_creators 1000
+
+static int num_recv_calls = 0;
+static thready__Id main_thread = NULL;
+
+void main_thread_recv(void *msg, thready__Id from) {}
+
+void create_once_receiver(void *msg, thready__Id from) {
+  static thready__Id id = NULL;
+  thready__Id my_id = thready__my_id();
+  test_that((id == NULL && my_id != NULL) || (id == my_id));
+  id = my_id;
+  num_recv_calls++;
+  if (num_recv_calls == num_creators) thready__send(NULL, main_thread);
+}
+
+void call_create_once(void *msg, thready__Id from) {
+  static thready__Id id = NULL;
+  thready__Id new_id = thready__create_once(create_once_receiver);
+  test_that((id == NULL && new_id != NULL) || (id == new_id));
+  id = new_id;
+  thready__send(NULL, id);
+}
+
+int create_once_test() {
+
+  // Create many threads any have them all call create_once. The idea is to
+  // increase the likelihood of revealing an error by trying to achieve many
+  // simultaneous calls to create_once.
+
+  main_thread = thready__my_id();
+  thready__Id id[num_creators];
+
+  for (int i = 0; i < num_creators; ++i) {
+    id[i] = thready__create(call_create_once);
+  }
+
+  for (int i = 0; i < num_creators; ++i) {
+    thready__send(NULL, id[i]);
+  }
+
+  // Wait for all calls to complete so we can check the count.
+  while (num_recv_calls < num_creators) {
+    thready__runloop(main_thread_recv, thready__blocking);
+  }
+
+  test_that(num_recv_calls == num_creators);
+
+  return test_success;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Main
 
 int main(int argc, char **argv) {
@@ -204,7 +258,7 @@ int main(int argc, char **argv) {
 
   start_all_tests(argv[0]);
   run_tests(
-    simple_test, exit_test, four_thread_test, scale_test
+    simple_test, exit_test, four_thread_test, scale_test, create_once_test
   );
   return end_all_tests();
 }
