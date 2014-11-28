@@ -8,6 +8,20 @@
 
 #include "pthreads_win.h"
 
+
+#ifndef _WIN32
+
+int pthread_mutex_is_locked(pthread_mutex_t *m) {
+  if (pthread_mutex_trylock(m) == 0) {
+    // We got the lock, so it must have been unlocked.
+    pthread_mutex_unlock(m);
+    return 0;  // It's unlocked.
+  }
+  return 1;  // We couldn't lock it, so it's locked.
+}
+
+#else
+
 #include <process.h>
 
 
@@ -60,6 +74,18 @@ void pthread_exit(void *exit_value) {
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// Mutex.
+
+int pthread_mutex_is_locked(pthread_mutex_t *m) {
+
+  // The following use of internal state is relatively safe. Source:
+  // http://blogs.msdn.com/b/oldnewthing/archive/2014/09/11/10557052.aspx
+
+  return m->LockCount != -1;  // -1 indicates an unlocked state.
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Condition variable.
 
 void pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
@@ -79,4 +105,4 @@ void pthread_once(pthread_once_t *once_control, void(*init)()) {
   InitOnceExecuteOnce(once_control, init_once, init, context);
 }
 
-
+#endif

@@ -11,14 +11,7 @@
 
 #include "../cstructs/cstructs.h"
 
-#ifdef _WIN32
-#include "pthreads_win.h"
-#else
-#include <pthread.h>
-#define pthread_rwlock_rdunlock pthread_rwlock_unlock
-#define pthread_rwlock_wrunlock pthread_rwlock_unlock
-#define pthread_mutex_release(x)
-#endif
+#include "pthreads_win.h"  // <pthread.h> or a wrapper for it based on OS.
 
 #include <stdint.h>
 
@@ -62,7 +55,7 @@ static int hash(void *v) {
   return (int)(intptr_t)v;
 }
 
-int eq(void *v1, void *v2) {
+static int eq(void *v1, void *v2) {
   return v1 == v2;
 }
 
@@ -76,7 +69,7 @@ static Thread *new_thread_struct() {
 
 static void thread_releaser(void *thread_vp) {
   Thread *thread = (Thread *)thread_vp;
-  pthread_mutex_release(&thread->inbox_mutex);
+  pthread_mutex_destroy(&thread->inbox_mutex);
   array__delete(thread->inbox);
   free(thread);
 }
